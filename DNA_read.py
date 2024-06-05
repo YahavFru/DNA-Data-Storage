@@ -1,20 +1,20 @@
 def main(dna_seq, pam):
-    pam = list(pam)
-    print(pam)
-    dna_seq = enumerate(dna_seq)
-    pam_start_indexes = []
+    enumerated_dna_seq = enumerate(dna_seq)
+    pam_end_indexes = []
     pam_match_counter = 0
-    for base in dna_seq:
+    for base in enumerated_dna_seq:
         is_pam, pam_match_counter = pam_checker(base[1], pam, pam_match_counter)
         if is_pam:
             pam_match_counter += 1
             if pam_match_counter == len(pam):
-                pam_start_indexes.append(base[0] - len(pam) + 1)
+                pam_end_indexes.append(base[0] +1)
                 pam_match_counter = 0
-
         else:
             pam_match_counter = 0
-    print(pam_start_indexes)
+
+    print(f'Pam indexes in DNA: {pam_end_indexes}')
+    encoder.__init__(encoder, dna_seq, pam_end_indexes)    
+    encoder.write(encoder)
 
 def pam_checker(base, pam, pam_index): #Returns: Is part of PAM? + what part of PAM?
     if pam[pam_index] == 'N' or base == pam[pam_index]:
@@ -25,5 +25,28 @@ def pam_checker(base, pam, pam_index): #Returns: Is part of PAM? + what part of 
     
     return False, -1
     
+class encoder:
+    bit_list = [1] #array of booleans / 0s or 1s
+    dna_seq = [] #original DNA sequence, array of single char string
+    grna_indexes = [] #array of indexes for each gRNA block on DNA
+    tagged_dna_seqs = [] #array of dna seqs, each edited.
 
-main(['G', 'C', 'G', 'A', 'A', 'A', 'A', 'T', 'G', 'G', 'T', 'C', 'C', 'T', 'T', 'A', 'A', 'G', 'A', 'A', 'T', 'C', 'A', 'T', 'C', 'A', 'T', 'C', 'G', 'G', 'G', 'T', 'T', 'C', 'T', 'T', 'T', 'T', 'A', 'A', 'G', 'A', 'C', 'G', 'A', 'G', 'G', 'C', 'C', 'A'], 'NGG')
+    def __init__(self, origin_dna, pam_end_indexes): #Defines all inputs for the class
+        for i in range(10):
+            self.tagged_dna_seqs.append(origin_dna)
+        for index in pam_end_indexes:
+            self.grna_indexes.append(index)
+        if len(self.bit_list) != len(self.grna_indexes):
+            print(f'Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.grna_indexes)})')
+
+    def write(self):
+        grna_counter = 0
+        for dna_seq in self.tagged_dna_seqs:
+            for grna in self.grna_indexes:
+                if self.bit_list[grna_counter]:
+                    for base in range(20):
+                        if dna_seq[grna + base] == 'C': 
+                            del dna_seq[grna + base]
+                            dna_seq.insert(grna + base, 'T') # This is the part where the DNA gets "Tagged", assuming 100% success rate
+        print(self.tagged_dna_seqs[9])
+main(['A','G','G','T','C','C','C','C','C','C','C','C','G','A','C','C','C','C','C','C','C','C','G'], 'NGG')
