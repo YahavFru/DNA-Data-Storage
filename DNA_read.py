@@ -1,6 +1,11 @@
+# TODO: a function that finds the PAMs
+# input: sequence + pam
+# output: a list of pam indices 
+
 def main(dna_seq, pam):
     enumerated_dna_seq = enumerate(dna_seq)
     pam_end_indexes = []
+    # TODO: Replace with regex
     pam_match_counter = 0
     for base in enumerated_dna_seq:
         is_pam, pam_match_counter = pam_checker(base[1], pam, pam_match_counter)
@@ -16,6 +21,7 @@ def main(dna_seq, pam):
     encoder.__init__(encoder, dna_seq, pam_end_indexes)    
     encoder.write(encoder)
 
+# TODO: Replace with regex
 def pam_checker(base, pam, pam_index): #Returns: Is part of PAM? + what part of PAM?
     if pam[pam_index] == 'N' or base == pam[pam_index]:
         return True, pam_index
@@ -24,7 +30,17 @@ def pam_checker(base, pam, pam_index): #Returns: Is part of PAM? + what part of 
         return pam_checker(base, pam, 0)
     
     return False, -1
-    
+
+# TODO: joint class for encoder+writer+reader+decoder
+# Shared metadata: DNA seq, PAM indices (or at least PAM sequence + logic to generate a list of indices)
+# functions:
+# encoder: binary message -> "ideal" edited sequence/list of PAM indices to edit
+# writer: simulate the enzymatic process. DNA seq + list of PAM indices to edit -> list of *many* edited DNA sequence
+#         parameters: edit probability, number of copies, other noise
+# reader: simulate NGS. list of *many* edited DNA sequence + DNA seq (unedited) -> list of edited PAM indices
+#         parameters: logic for identifying editing from a noisy signal
+# decoder: "ideal" edited sequence/list of PAM indices to edit -> binary message
+
 class encoder:
     bit_list = [1] #array of booleans / 0s or 1s
     dna_seq = [] #original DNA sequence, array of single char string
