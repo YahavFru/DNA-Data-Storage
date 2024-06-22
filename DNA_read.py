@@ -3,8 +3,14 @@ import re, random
 is_print = True
 
 def pam_finder(dna_seq, pam):
-    pam_indices = re.finditer('.GG', dna_seq)
+    pam_indices = re.finditer(pam.replace('N', '.'), dna_seq)
     return [pam.end() for pam in pam_indices] # Returns the start position of each pam sequence
+
+def randomizer(success_chance): # recieves odds as a double between 0-1, returns wether the odds were met
+    if success_chance >= random.random():
+        return True
+    else:
+        return False
     
 # TODO: a function that finds the PAMs
 # input: sequence + pam
@@ -26,7 +32,7 @@ def main(dna_seq, pam):
 # functions:
 # encoder: binary message -> "ideal" edited sequence/list of PAM indices to edit (V)
 # writer: simulate the enzymatic process. DNA seq + list of PAM indices to edit -> list of *many* edited DNA sequence
-#         parameters: edit probability, number of copies, other noise
+#         parameters: edit probability, number of copies, other noise (V)
 # reader: simulate NGS. list of *many* edited DNA sequence + DNA seq (unedited) -> list of edited PAM indices
 #         parameters: logic for identifying editing from a noisy signal
 # decoder: "ideal" edited sequence/list of PAM indices to edit -> binary message
@@ -68,7 +74,7 @@ class dna_data_storage_proccess:
                 if index == self.grna_indexes_for_edit[grna_counter]:
                     is_grna = True
                 if is_grna:
-                    if base == 'C':
+                    if base == 'C' and randomizer(edit_probability):
                         self.tagged_dna_seqs[dna_copy] += 'T'
                     else:
                         self.tagged_dna_seqs[dna_copy] += base
