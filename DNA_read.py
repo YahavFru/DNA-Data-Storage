@@ -12,6 +12,12 @@ def randomizer(success_chance): # recieves odds as a double between 0-1, returns
     else:
         return False
     
+def has_mutated(original_ratio, new_ratio, required_ratio_growth):
+    if original_ratio * required_ratio_growth <= new_ratio:
+        return True
+    else:
+        return False
+    
 # TODO: a function that finds the PAMs
 # input: sequence + pam
 # output: a list of pam indices 
@@ -25,6 +31,9 @@ def main(dna_seq, pam):
     dna_data_storage_proccess.write(dna_data_storage_proccess)
     if is_print:
         print(f'Tagged sequence is: {dna_data_storage_proccess.tagged_dna_seqs[0]}')
+    mutated_pams = dna_data_storage_proccess.read(dna_data_storage_proccess)
+    if is_print:
+        print(f'The lists of mutated pams are {mutated_pams}')
 
 
 # TODO: joint class for encoder+writer+reader+decoder
@@ -86,10 +95,46 @@ class dna_data_storage_proccess:
                 else:
                     self.tagged_dna_seqs[dna_copy] += base
 
+    def read(self, read_accuracy = 1, required_ratio_growth = 1): #Doesnt work with only c in original seq 
+        tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to Cytosine ratio
+        for index in self.grna_indexes:
+            t_amount = 0
+            c_amount = 0
+            for base in range(20):
+                if self.dna_seq[index + base] == 'C': 
+                    c_amount += 1
+                elif self.dna_seq[index + base] == 'T': 
+                    t_amount += 1
+            tc_ratio.append(t_amount/c_amount) #What if no Cs? 
+        
+
+        mutated_pams = [] # list of lists, each containing wether each pam site was edited
+
+        for tagged_seq in self.tagged_dna_seqs:
+            edited_tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to Cytosine ratio
+            for index in self.grna_indexes:
+                edited_t_amount = 0
+                edited_c_amount = 0
+                for base in range(20):
+                    if self.dna_seq[index + base] == 'C' and randomizer(read_accuracy): #Consult if this is the correct way to randomize reading (needs improvement to determine wether faulty reading results in what base)
+                        edited_c_amount += 1
+                    elif self.dna_seq[index + base] == 'T' and randomizer(read_accuracy): 
+                        edited_t_amount += 1
+                edited_tc_ratio.append(t_amount/c_amount)
+            mutated_pams.append([])
+            for original_ratio, edited_ratio in zip(tc_ratio, edited_tc_ratio):
+                mutated_pams[-1].append(has_mutated(original_ratio, edited_ratio, required_ratio_growth)) # Appends True if mutated, False if not
+
+        return mutated_pams
+
+            
+        
+            
+
 
                     
 
 
 
 
-main('AGGCCCCCCCCCCCCCCCCCCCC', 'NGG')
+main('AGGCCCCCCCCCCCCCCCCCCCT', 'NGG')
