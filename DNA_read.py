@@ -1,4 +1,4 @@
-import re
+import re, random
 
 is_print = True
 
@@ -13,9 +13,12 @@ def pam_finder(dna_seq, pam):
 def main(dna_seq, pam):
     pam_indices = pam_finder(dna_seq, pam)
     if is_print:
-        print(f'The PAM indeces are: ${pam_indices}, The PAM sequences are: ${[dna_seq[pam_index] for pam_index in pam_indices]}')
+        print(f'The PAM indices are: {pam_indices}')
     dna_data_storage_proccess.__init__(dna_data_storage_proccess, dna_seq, pam_indices)    
+    dna_data_storage_proccess.encode(dna_data_storage_proccess)
     dna_data_storage_proccess.write(dna_data_storage_proccess)
+    if is_print:
+        print(f'Tagged sequence is: {dna_data_storage_proccess.tagged_dna_seqs[0]}')
 
 
 # TODO: joint class for encoder+writer+reader+decoder
@@ -29,7 +32,7 @@ def main(dna_seq, pam):
 # decoder: "ideal" edited sequence/list of PAM indices to edit -> binary message
 
 class dna_data_storage_proccess:
-    bit_list = [1] #array of booleans / 0s or 1s
+    bit_list = [True] #array of booleans / 0s or 1s
     dna_seq = '' #original DNA sequence, string
     tagged_ideal_seq = ''
     grna_indexes_for_edit = []
@@ -45,14 +48,42 @@ class dna_data_storage_proccess:
         if len(self.bit_list) != len(self.grna_indexes):
             print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.grna_indexes)})')
         else:
+            grna_index_counter = 0
             for index in self.grna_indexes:
-                if self.bit_list[index]: # is this bit 1? i.e, does it require editing?
+                if self.bit_list[grna_index_counter]: # is this bit 1? i.e, does it require editing?
                     self.grna_indexes_for_edit.append(index)
-                    for base_jump in range(20):
-                        if self.dna_seq[index + base_jump] == 'C':
+                    for base in range(20):
+                        if self.dna_seq[index + base] == 'C':
                             self.tagged_ideal_seq += 'T'
                         else: 
-                            self.tagged_ideal_seq += self.dna_seq[index + base_jump]
+                            self.tagged_ideal_seq += self.dna_seq[index + base]
+                grna_index_counter += 1
+
+    def write(self, edit_probability = 1, dna_copy_num = 10):
+        is_grna = False
+        grna_counter = 0
+        for dna_copy in range(dna_copy_num):
+            self.tagged_dna_seqs.append('')
+            for index, base in enumerate(self.dna_seq):
+                if index == self.grna_indexes_for_edit[grna_counter]:
+                    is_grna = True
+                if is_grna:
+                    if base == 'C':
+                        self.tagged_dna_seqs[dna_copy] += 'T'
+                    else:
+                        self.tagged_dna_seqs[dna_copy] += base
+
+                    if index == self.grna_indexes_for_edit[grna_counter] + 19:
+                        is_grna = False
+                        if not grna_counter == len(self.grna_indexes_for_edit) -1:
+                            grna_counter += 1
+                else:
+                    self.tagged_dna_seqs[dna_copy] += base
+
+
+                    
+
+
 
 
 main('AGGCCCCCCCCCCCCCCCCCCCC', 'NGG')
