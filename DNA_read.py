@@ -34,6 +34,8 @@ def main(dna_seq, pam):
     mutated_pams = dna_data_storage_proccess.read(dna_data_storage_proccess)
     if is_print:
         print(f'The lists of mutated pams are {mutated_pams}')
+    bit_result = dna_data_storage_proccess.decode(dna_data_storage_proccess, mutated_pams)
+    print(f'The resulting bit is: {bit_result}') # not in if is_print because it is the end result
 
 
 # TODO: joint class for encoder+writer+reader+decoder
@@ -47,7 +49,7 @@ def main(dna_seq, pam):
 # decoder: "ideal" edited sequence/list of PAM indices to edit -> binary message
 
 class dna_data_storage_proccess:
-    bit_list = [True] #array of booleans / 0s or 1s
+    bit_list = [False, True] #array of booleans / 0s or 1s
     dna_seq = '' #original DNA sequence, string
     tagged_ideal_seq = ''
     grna_indexes_for_edit = []
@@ -127,14 +129,20 @@ class dna_data_storage_proccess:
 
         return mutated_pams
 
-            
+    def decode(self, mutated_pams, mutation_ratio = 0.5):
+        pam_mutation = []
+        for pam_index in range(len(mutated_pams[0])): # which pam are we going through?
+            is_mutated_average = 0
+            for pams in mutated_pams: #which seq's pam are we going through?
+                is_mutated_average += pams[pam_index]
+            is_mutated_average /= len(mutated_pams[0])
+            pam_mutation.append(is_mutated_average)
         
-            
+        result_bit_list = []
+        for mutation_average in pam_mutation:
+            result_bit_list.append(mutation_average > mutation_ratio) #If the average mutated pams is larger than the set threshold, append 1, else append 0
+        return result_bit_list
+        
 
 
-                    
-
-
-
-
-main('AGGCCCCCCCCCCCCCCCCCCCT', 'NGG')
+main('ACCTTGCAGGAATTGAGGCCGTCCGTTAATTTCCCTTGCATACATATTGCGTTTTTTTGTCCTTTTATCCGCTCACTTAGAAAAGAGACAGATAGCTTCT', 'NGG')
