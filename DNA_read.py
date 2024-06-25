@@ -1,9 +1,7 @@
 import re, random
 
-is_print = True
-
 def pam_finder(dna_seq, pam):
-    pam_indices = re.finditer(pam.replace('N', '.'), dna_seq)
+    pam_indices = re.finditer(pam.replace('N', '.'), dna_seq) #RegEx ignores overlap giving only the first one
     return [pam.end() for pam in pam_indices] # Returns the start position of each pam sequence
 
 def randomizer(success_chance): # recieves odds as a double between 0-1, returns wether the odds were met
@@ -12,94 +10,87 @@ def randomizer(success_chance): # recieves odds as a double between 0-1, returns
     else:
         return False
     
-def has_mutated(original_ratio, new_ratio, required_ratio_growth):
-    if original_ratio * required_ratio_growth <= new_ratio:
-        return True
-    else:
-        return False
-    
-# TODO: a function that finds the PAMs
-# input: sequence + pam
-# output: a list of pam indices 
+def has_mutated(original_ratios, new_ratios, min_confidence_exponent = 1.1): # List of gRNA original ratios + list of each DNA's gRNAs -> which grna's are mutated
+    sum_mutations = []
+    for ratio in original_ratios:
+        sum_mutations.append(0)
+    for ratios in new_ratios:
+        for ratio_index, edited_ratio in enumerate(ratios):
+            sum_mutations[ratio_index] += edited_ratio > original_ratios[ratio_index] * min_confidence_exponent
+
+
+    mutated_bits = []
+    for sum_mut in sum_mutations:
+        mutated_bits.append(sum_mut / len(new_ratios) >= 0.5)
+
+    return mutated_bits
 
 def main(dna_seq, pam):
     pam_indices = pam_finder(dna_seq, pam)
-    if is_print:
-        print(f'The PAM indices are: {pam_indices}')
-    dna_data_storage_proccess.__init__(dna_data_storage_proccess, dna_seq, pam_indices)    
-    dna_data_storage_proccess.encode(dna_data_storage_proccess)
-    dna_data_storage_proccess.write(dna_data_storage_proccess)
-    if is_print:
-        print(f'Tagged sequence is: {dna_data_storage_proccess.tagged_dna_seqs[0]}')
-    mutated_pams = dna_data_storage_proccess.read(dna_data_storage_proccess)
-    if is_print:
-        print(f'The lists of mutated pams are {mutated_pams}')
-    bit_result = dna_data_storage_proccess.decode(dna_data_storage_proccess, mutated_pams)
-    print(f'The resulting bit is: {bit_result}') # not in if is_print because it is the end result
+    print(pam_indices)
+    dna_data_storage_process.__init__(dna_data_storage_process, dna_seq, pam_indices, [True, False, True, False, True, False, True, False, True, False])    
+    dna_data_storage_process.encode(dna_data_storage_process)
+    dna_data_storage_process.channel(dna_data_storage_process)
+    bit_result = dna_data_storage_process.decode(dna_data_storage_process)
+    print(f'The resulting bit is: {bit_result}')
+    print(f'Tagged {len(dna_data_storage_process.tagged_dna_seqs)} DNA sequences')
 
-
-# TODO: joint class for encoder+writer+reader+decoder
-# Shared metadata: DNA seq, PAM indices (or at least PAM sequence + logic to generate a list of indices)
-# functions:
-# encoder: binary message -> "ideal" edited sequence/list of PAM indices to edit (V)
-# writer: simulate the enzymatic process. DNA seq + list of PAM indices to edit -> list of *many* edited DNA sequence
-#         parameters: edit probability, number of copies, other noise (V)
-# reader: simulate NGS. list of *many* edited DNA sequence + DNA seq (unedited) -> list of edited PAM indices
-#         parameters: logic for identifying editing from a noisy signal
-# decoder: "ideal" edited sequence/list of PAM indices to edit -> binary message
-
-class dna_data_storage_proccess:
-    bit_list = [False, True] #array of booleans / 0s or 1s
+class dna_data_storage_process:
+    bit_list = [] #array of booleans / 0s or 1s
     dna_seq = '' #original DNA sequence, string
     tagged_ideal_seq = ''
-    grna_indexes_for_edit = []
-    grna_indexes = [] #array of indexes for each gRNA block on DNA
+    grna_indices_for_edit = []
+    grna_indices = [] #array of indexes for each gRNA block on DNA
     tagged_dna_seqs = [] #array of dna seqs, each edited.
+    mutated_pams = [] # list of lists, each containing wether each pam site was edited
 
-    def __init__(self, origin_dna, pam_end_indices): #Defines all inputs for the class
+
+    def __init__(self, origin_dna, pam_end_indices, bit_list): #Defines all inputs for the class
         self.dna_seq = origin_dna
-        for index in pam_end_indices:
-            self.grna_indexes.append(index)
+        self.grna_indices = pam_end_indices
+        self.bit_list = bit_list
         
     def encode(self):
-        if len(self.bit_list) != len(self.grna_indexes):
-            print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.grna_indexes)})')
+        if len(self.bit_list) != len(self.grna_indices):
+            print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.grna_indices)})')
         else:
-            grna_index_counter = 0
-            for index in self.grna_indexes:
-                if self.bit_list[grna_index_counter]: # is this bit 1? i.e, does it require editing?
-                    self.grna_indexes_for_edit.append(index)
-                    for base in range(20):
-                        if self.dna_seq[index + base] == 'C':
-                            self.tagged_ideal_seq += 'T'
-                        else: 
-                            self.tagged_ideal_seq += self.dna_seq[index + base]
-                grna_index_counter += 1
-
-    def write(self, edit_probability = 1, dna_copy_num = 10):
-        is_grna = False
-        grna_counter = 0
-        for dna_copy in range(dna_copy_num):
-            self.tagged_dna_seqs.append('')
+            for list_index, grna_index in enumerate(self.grna_indices):
+                if self.bit_list[list_index]:
+                    self.grna_indices_for_edit.append(grna_index)
+            grna_counter = 0
             for index, base in enumerate(self.dna_seq):
-                if index == self.grna_indexes_for_edit[grna_counter]:
-                    is_grna = True
-                if is_grna:
-                    if base == 'C' and randomizer(edit_probability):
-                        self.tagged_dna_seqs[dna_copy] += 'T'
-                    else:
-                        self.tagged_dna_seqs[dna_copy] += base
-
-                    if index == self.grna_indexes_for_edit[grna_counter] + 19:
-                        is_grna = False
-                        if not grna_counter == len(self.grna_indexes_for_edit) -1:
-                            grna_counter += 1
+                if index in range(self.grna_indices_for_edit[grna_counter], self.grna_indices_for_edit[grna_counter] + 20) and base == 'C':
+                    self.tagged_ideal_seq += 'T'
                 else:
-                    self.tagged_dna_seqs[dna_copy] += base
+                    self.tagged_ideal_seq += base
+                # If the we have passsed the gRNA area and we arent on the last pam
+                if index > self.grna_indices_for_edit[grna_counter] + 19 and not grna_counter == len(self.grna_indices_for_edit) - 1: 
+                    grna_counter += 1
 
-    def read(self, read_accuracy = 1, required_ratio_growth = 1): #Doesnt work with only c in original seq 
-        tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to Cytosine ratio
-        for index in self.grna_indexes:
+    def channel(self, edit_probability = 1, read_accuracy = 1, dna_copy_num = 10): #Ideal seq + parameters for read/write chances -> all edited seqs
+        
+        for tagged_seq in range(dna_copy_num):
+            self.tagged_dna_seqs.append('')
+            for base, edited_base in zip(self.dna_seq, self.tagged_ideal_seq):
+                if base == edited_base: # Same base -> no edit needs to happen, just randomizing sequencing errors
+                    if randomizer(read_accuracy):
+                        self.tagged_dna_seqs[tagged_seq] += edited_base
+                    else:
+                        self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
+                else: # Different bases -> edit needs to happen, randomizes sequencing and edit errors
+                    if randomizer(read_accuracy):
+                        if randomizer(edit_probability):
+                            self.tagged_dna_seqs[tagged_seq] += edited_base
+                        else:
+                            self.tagged_dna_seqs[tagged_seq] += base
+                    else:
+                        self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
+
+
+    def decode(self, mutation_ratio = 0.5, required_ratio_growth = 1): # Edited seqs, original seq -> bit list
+
+        tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to ALL T and C ratio
+        for index in self.grna_indices:
             t_amount = 0
             c_amount = 0
             for base in range(20):
@@ -107,42 +98,29 @@ class dna_data_storage_proccess:
                     c_amount += 1
                 elif self.dna_seq[index + base] == 'T': 
                     t_amount += 1
-            tc_ratio.append(t_amount/c_amount) #What if no Cs? 
+            tc_ratio.append(t_amount/(c_amount + t_amount))
         
-
-        mutated_pams = [] # list of lists, each containing wether each pam site was edited
-
+        edited_tc_ratios = [] # list that contains, for each grna sequence in each dna molecule, the EDITED Thymine to ALL T and C ratio
         for tagged_seq in self.tagged_dna_seqs:
-            edited_tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to Cytosine ratio
-            for index in self.grna_indexes:
+            edited_tc_ratios.append([])
+            for index in self.grna_indices:
                 edited_t_amount = 0
                 edited_c_amount = 0
                 for base in range(20):
-                    if self.dna_seq[index + base] == 'C' and randomizer(read_accuracy): #Consult if this is the correct way to randomize reading (needs improvement to determine wether faulty reading results in what base)
+                    if tagged_seq[index + base] == 'C':
                         edited_c_amount += 1
-                    elif self.dna_seq[index + base] == 'T' and randomizer(read_accuracy): 
+                    elif tagged_seq[index + base] == 'T': 
                         edited_t_amount += 1
-                edited_tc_ratio.append(t_amount/c_amount)
-            mutated_pams.append([])
-            for original_ratio, edited_ratio in zip(tc_ratio, edited_tc_ratio):
-                mutated_pams[-1].append(has_mutated(original_ratio, edited_ratio, required_ratio_growth)) # Appends True if mutated, False if not
+                edited_tc_ratios[-1].append(edited_t_amount/(edited_c_amount + edited_t_amount))
 
-        return mutated_pams
+            
 
-    def decode(self, mutated_pams, mutation_ratio = 0.5):
-        pam_mutation = []
-        for pam_index in range(len(mutated_pams[0])): # which pam are we going through?
-            is_mutated_average = 0
-            for pams in mutated_pams: #which seq's pam are we going through?
-                is_mutated_average += pams[pam_index]
-            is_mutated_average /= len(mutated_pams[0])
-            pam_mutation.append(is_mutated_average)
+        if tc_ratio in edited_tc_ratios:
+            print('D:')
+        return has_mutated(tc_ratio, edited_tc_ratios)
         
-        result_bit_list = []
-        for mutation_average in pam_mutation:
-            result_bit_list.append(mutation_average > mutation_ratio) #If the average mutated pams is larger than the set threshold, append 1, else append 0
-        return result_bit_list
+        
         
 
 
-main('ACCTTGCAGGAATTGAGGCCGTCCGTTAATTTCCCTTGCATACATATTGCGTTTTTTTGTCCTTTTATCCGCTCACTTAGAAAAGAGACAGATAGCTTCT', 'NGG')
+main('CTCAGCTCTATTTTAGTGGTCATGGGTTTTGGTCCGCCCGAGCGGTGCAACCGATTAGGACCATGTAAAACATTTGTTACAAGTCTTCTTTTAAACACAATCTTCCTGCTCAGTGGCGCATGATTATCGTTGTTGCTAGCCAGCGTGGTAAGTAACAGCACCACTGCGAGCCTAATGTGCCCTTTCCACGAACACAGGGCTGTCCGATCCTATATTAGGACTCCGCAATGGGGTTAGCAAGTCGCACCCTAAACGATGTTGAAGACTCGCGATGTACATGCTCTGGTACAATACATACGT', 'NGG')
