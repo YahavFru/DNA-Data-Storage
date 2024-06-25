@@ -1,4 +1,4 @@
-import re, random
+import re, random, config
 
 def pam_finder(dna_seq, pam):
     pam_indices = re.finditer(pam.replace('N', '.'), dna_seq) #RegEx ignores overlap giving only the first one
@@ -10,7 +10,9 @@ def randomizer(success_chance): # recieves odds as a double between 0-1, returns
     else:
         return False
     
-def has_mutated(original_ratios, new_ratios, min_confidence_exponent = 1.1): # List of gRNA original ratios + list of each DNA's gRNAs -> which grna's are mutated
+def has_mutated(original_ratios, new_ratios): # List of gRNA original ratios + list of each DNA's gRNAs -> which grna's are mutated
+    min_confidence_exponent = config.parameters.confidence_exponent
+    
     sum_mutations = []
     for ratio in original_ratios:
         sum_mutations.append(0)
@@ -24,16 +26,6 @@ def has_mutated(original_ratios, new_ratios, min_confidence_exponent = 1.1): # L
         mutated_bits.append(sum_mut / len(new_ratios) >= 0.5)
 
     return mutated_bits
-
-def main(dna_seq, pam):
-    pam_indices = pam_finder(dna_seq, pam)
-    print(pam_indices)
-    dna_data_storage_process.__init__(dna_data_storage_process, dna_seq, pam_indices, [True, False, True, False, True, False, True, False, True, False])    
-    dna_data_storage_process.encode(dna_data_storage_process)
-    dna_data_storage_process.channel(dna_data_storage_process)
-    bit_result = dna_data_storage_process.decode(dna_data_storage_process)
-    print(f'The resulting bit is: {bit_result}')
-    print(f'Tagged {len(dna_data_storage_process.tagged_dna_seqs)} DNA sequences')
 
 class dna_data_storage_process:
     bit_list = [] #array of booleans / 0s or 1s
@@ -53,6 +45,7 @@ class dna_data_storage_process:
     def encode(self):
         if len(self.bit_list) != len(self.grna_indices):
             print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.grna_indices)})')
+            exit() 
         else:
             for list_index, grna_index in enumerate(self.grna_indices):
                 if self.bit_list[list_index]:
@@ -67,8 +60,12 @@ class dna_data_storage_process:
                 if index > self.grna_indices_for_edit[grna_counter] + 19 and not grna_counter == len(self.grna_indices_for_edit) - 1: 
                     grna_counter += 1
 
-    def channel(self, edit_probability = 1, read_accuracy = 1, dna_copy_num = 10): #Ideal seq + parameters for read/write chances -> all edited seqs
+    def channel(self): #Ideal seq + parameters for read/write chances -> all edited seqs
         
+        edit_probability = config.parameters.edit_probability
+        read_accuracy = config.parameters.read_accuracy
+        dna_copy_num = config.parameters.copy_nums
+
         for tagged_seq in range(dna_copy_num):
             self.tagged_dna_seqs.append('')
             for base, edited_base in zip(self.dna_seq, self.tagged_ideal_seq):
@@ -87,7 +84,7 @@ class dna_data_storage_process:
                         self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
 
 
-    def decode(self, mutation_ratio = 0.5, required_ratio_growth = 1): # Edited seqs, original seq -> bit list
+    def decode(self): # Edited seqs, original seq -> bit list
 
         tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to ALL T and C ratio
         for index in self.grna_indices:
@@ -113,14 +110,21 @@ class dna_data_storage_process:
                         edited_t_amount += 1
                 edited_tc_ratios[-1].append(edited_t_amount/(edited_c_amount + edited_t_amount))
 
-            
-
-        if tc_ratio in edited_tc_ratios:
-            print('D:')
         return has_mutated(tc_ratio, edited_tc_ratios)
         
+def main(dna_seq, pam, bit_list):
+    pam_indices = pam_finder(dna_seq, pam)
+    print(pam_indices)
+    dna_data_storage_process.__init__(dna_data_storage_process, dna_seq, pam_indices, bit_list)    
+    dna_data_storage_process.encode(dna_data_storage_process)
+    dna_data_storage_process.channel(dna_data_storage_process)
+    bit_result = dna_data_storage_process.decode(dna_data_storage_process)
+    if config.parameters.is_print:
+        print(f'The resulting bit is: {bit_result}')
+        print(f'Tagged {len(dna_data_storage_process.tagged_dna_seqs)} DNA sequences')
+
         
         
 
 
-main('CTCAGCTCTATTTTAGTGGTCATGGGTTTTGGTCCGCCCGAGCGGTGCAACCGATTAGGACCATGTAAAACATTTGTTACAAGTCTTCTTTTAAACACAATCTTCCTGCTCAGTGGCGCATGATTATCGTTGTTGCTAGCCAGCGTGGTAAGTAACAGCACCACTGCGAGCCTAATGTGCCCTTTCCACGAACACAGGGCTGTCCGATCCTATATTAGGACTCCGCAATGGGGTTAGCAAGTCGCACCCTAAACGATGTTGAAGACTCGCGATGTACATGCTCTGGTACAATACATACGT', 'NGG')
+main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list)
