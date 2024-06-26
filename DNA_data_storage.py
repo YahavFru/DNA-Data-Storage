@@ -139,6 +139,3 @@ def main(dna_seq, pam, bit_list):
 
         
 # Code limitations: RegEx doesnt find overlapping PAMS (AGGG -> AGG (not GGG))
-
-
-bits = main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list)
