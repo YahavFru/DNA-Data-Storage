@@ -4,23 +4,29 @@ import pandas as pd
 import random
 import plotly.express as px
 import numpy as np
-import sys
 
 def dna_generator(count):
     pam = config.required_inputs.pam
-    
+    dna_checkpoint = ''
+    counter = 1
     while True:
-        dna_seq = ''
-        for _ in range(count):
-            for base in pam:
-                if base == 'N':
-                    dna_seq += random.choice('ACTG')
-                else:
-                    dna_seq += base
-            dna_seq += ''.join(random.choices('ACTG', k=random.randint(20, 39)))
+        dna_seq = dna_checkpoint
+
+        for base in pam:
+            if base == 'N':
+                dna_seq += random.choice('ACTG')
+            else:
+                dna_seq += base
+            
+        dna_seq += ''.join(random.choices('ACTG', k= random.randint(20, 20))) #20, 39
         
-        if len(main.pam_finder(dna_seq, pam)) == count:
+        pam_indices = main.pam_finder(dna_seq, pam)
+        if len(pam_indices) == count and len(dna_seq) >= pam_indices[-1] + 19:
             return dna_seq
+        elif len(pam_indices) == counter:
+            counter += 1
+            dna_checkpoint = dna_seq
+        
 
 confidence_exponents = []
 avg_results = []

@@ -84,14 +84,17 @@ class dna_data_storage_process:
                     if randomizer(read_accuracy):
                         self.tagged_dna_seqs[tagged_seq] += edited_base
                     else:
+                        print('Read Error')
                         self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
                 else: # Different bases -> edit needs to happen, randomizes sequencing and edit errors
                     if randomizer(read_accuracy):
                         if randomizer(edit_probability):
                             self.tagged_dna_seqs[tagged_seq] += edited_base
                         else:
+                            print('Edit miss')
                             self.tagged_dna_seqs[tagged_seq] += base
                     else:
+                        print('Read Error')
                         self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
 
 
