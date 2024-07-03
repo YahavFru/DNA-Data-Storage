@@ -7,14 +7,10 @@ def pam_finder(dna_seq, pam): # Dna + pam -> pam end indices
 
 
 def randomizer(success_chance): # recieves odds as a double between 0-1, returns wether the odds were met
-    if success_chance >= random.random():
-        return True
-    else:
-        return False
+    return success_chance >= random.random()
 
-def has_mutated(original_ratios, new_ratios): # List of gRNA original ratios + list of each DNA's gRNAs -> which grna's are mutated
+def has_mutated(original_ratios, new_ratios): # List of each protospacer's t/t+c original ratios + list of each tagged seq's protospacer's t/t+c edited ratios -> Bit list
     min_confidence_exponent = config.parameters.confidence_exponent
-
     sum_mutations = []
     for ratio in original_ratios:
         sum_mutations.append(0)
@@ -71,7 +67,7 @@ class dna_data_storage_process:
                 if index > self.grna_indices_for_edit[grna_counter] + 19 and not grna_counter == len(self.grna_indices_for_edit) - 1: 
                     grna_counter += 1
 
-    def channel(self): #Ideal seq + parameters for read/write chances -> all edited seqs
+    def channel(self): #Ideal seq + original seq + parameters for read/write chances -> all edited seqs
         
         edit_probability = config.parameters.edit_probability
         read_accuracy = config.parameters.read_accuracy 
@@ -84,17 +80,14 @@ class dna_data_storage_process:
                     if randomizer(read_accuracy):
                         self.tagged_dna_seqs[tagged_seq] += edited_base
                     else:
-                        print('Read Error')
                         self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
                 else: # Different bases -> edit needs to happen, randomizes sequencing and edit errors
                     if randomizer(read_accuracy):
                         if randomizer(edit_probability):
                             self.tagged_dna_seqs[tagged_seq] += edited_base
                         else:
-                            print('Edit miss')
                             self.tagged_dna_seqs[tagged_seq] += base
                     else:
-                        print('Read Error')
                         self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
 
 
@@ -102,28 +95,17 @@ class dna_data_storage_process:
 
         tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to ALL T and C ratio
         for index in self.grna_indices:
-            t_amount = 0
-            c_amount = 0
-            for base in range(20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index): # 20 if fits in string, if not enough bases, take only amount possible
-                if self.dna_seq[index + base] == 'C': 
-                    c_amount += 1
-                elif self.dna_seq[index + base] == 'T': 
-                    t_amount += 1
+            t_amount = self.dna_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('T')
+            c_amount = self.dna_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('C')
             tc_ratio.append(t_amount/(c_amount + t_amount)) # uses t/t+c to avoid division by 0
         
         edited_tc_ratios = [] # list that contains, for each grna sequence in each dna molecule, the EDITED Thymine to ALL T and C ratio
         for tagged_seq in self.tagged_dna_seqs:
             edited_tc_ratios.append([])
             for index in self.grna_indices:
-                edited_t_amount = 0
-                edited_c_amount = 0
-                for base in range(20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index): # 20 if fits in string, if not enough bases, take only amount possible
-                    if tagged_seq[index + base] == 'C':
-                        edited_c_amount += 1
-                    elif tagged_seq[index + base] == 'T': 
-                        edited_t_amount += 1
+                edited_t_amount = tagged_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('T')
+                edited_c_amount = tagged_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('C')
                 edited_tc_ratios[-1].append(edited_t_amount/(edited_c_amount + edited_t_amount)) # uses t/t+c to avoid division by 0
-
         return has_mutated(tc_ratio, edited_tc_ratios)
         
 def main(dna_seq, pam, bit_list):
