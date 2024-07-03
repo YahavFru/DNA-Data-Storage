@@ -83,10 +83,6 @@ def conf_exponent_graph():
 
 #########################################################################################
 
-import numpy as np
-import pandas as pd
-import plotly.graph_objects as go
-
 def edit_probability_graph():
     # Initialize lists for the sequences
     copy_nums_list = [100, 25, 1]  # Different copy numbers to plot
@@ -308,10 +304,6 @@ def copy_num_graph(num_seq_1, num_seq_2, num_seq_3):
 
 ###################################################
 
-import numpy as np
-import pandas as pd
-import plotly.graph_objs as go
-
 def copy_num_graph():
     # Initialize lists for the sequences
     copy_nums = [0] + np.arange(1, 20, 1).tolist()  # Start with 0
@@ -407,5 +399,6 @@ def copy_num_graph():
 
     fig.show()
 
-# Example usage
-copy_num_graph()
+# copy_num_graph()
+
+print(dna_generator(5))

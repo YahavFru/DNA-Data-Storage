@@ -25,53 +25,40 @@ def has_mutated(original_ratios, new_ratios): # List of each protospacer's t/t+c
     return mutated_bits
 
 class dna_data_storage_process:
-    bit_list = [] #array of booleans / 0s or 1s
-    dna_seq = '' #original DNA sequence, string
-    tagged_ideal_seq = ''
-    grna_indices_for_edit = []
-    grna_indices = [] #array of indexes for each gRNA block on DNA
-    tagged_dna_seqs = [] #array of dna seqs, each edited.
-    mutated_pams = [] # list of lists, each containing wether each pam site was edited
 
-
-    def __init__(self, origin_dna, pam_end_indices, bit_list): #Defines all inputs for the class
-        self.bit_list = [] #array of booleans / 0s or 1s
-        self.dna_seq = '' #original DNA sequence, string
-        self.tagged_ideal_seq = ''
-        self.grna_indices_for_edit = []
-        self.grna_indices = [] #array of indexes for each gRNA block on DNA
-        self.tagged_dna_seqs = [] #array of dna seqs, each edited.
-        self.mutated_pams = [] # list of lists, each containing wether each pam site was edited
-
-        self.dna_seq = origin_dna
-        self.grna_indices = pam_end_indices
-        self.bit_list = bit_list
+    def __init__(self, origin_dna, pam_end_indices, bit_list): #Defines all inputs for the class + Resets for multiple back to back runs
+        #Settings for class:
+        self.dna_seq = origin_dna #original DNA sequence, string
+        self.prtspcr_indices = pam_end_indices #array of indexes for each protospacer block on DNA
+        self.bit_list = bit_list #array of booleans
         
-    def encode(self):
+    def encode(self): #Bit list, Protospacer indices, DNA sequence, -> Ideal edited seq
 
-        if len(self.bit_list) != len(self.grna_indices): #Bits and bit storage spaces dont match
-            print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.grna_indices)})')
+        if len(self.bit_list) != len(self.prtspcr_indices): #Bits and bit storage spaces dont match
+            print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.prtspcr_indices)})')
             exit() 
         
         else:
-            for list_index, grna_index in enumerate(self.grna_indices):
-                if self.bit_list[list_index]:
-                    self.grna_indices_for_edit.append(grna_index)
-            grna_counter = 0
+            protspcr_indices_for_edit = [prtspcr_index for list_index, prtspcr_index in enumerate(self.prtspcr_indices) if self.bit_list[list_index]] #For each protospacer, check wether it is a 1, ie does it need editing.
+            self.tagged_ideal_seq = ''
+
+            prtspcr_counter = 0
             for index, base in enumerate(self.dna_seq):
-                if index in range(self.grna_indices_for_edit[grna_counter], self.grna_indices_for_edit[grna_counter] + 20) and base == 'C':
+                if index in range(protspcr_indices_for_edit[prtspcr_counter], protspcr_indices_for_edit[prtspcr_counter] + 20) and base == 'C':
                     self.tagged_ideal_seq += 'T'
                 else:
                     self.tagged_ideal_seq += base
-                # If we passsed the gRNA area and we arent on the last pam
-                if index > self.grna_indices_for_edit[grna_counter] + 19 and not grna_counter == len(self.grna_indices_for_edit) - 1: 
-                    grna_counter += 1
+                # If we passsed the prtspcr area and we arent on the last pam
+                if index > protspcr_indices_for_edit[prtspcr_counter] + 19 and not prtspcr_counter == len(protspcr_indices_for_edit) - 1: 
+                    prtspcr_counter += 1
 
     def channel(self): #Ideal seq + original seq + parameters for read/write chances -> all edited seqs
         
         edit_probability = config.parameters.edit_probability
         read_accuracy = config.parameters.read_accuracy 
         dna_copy_num = config.parameters.copy_nums
+
+        self.tagged_dna_seqs = [] #array of dna seqs, each edited.
 
         for tagged_seq in range(dna_copy_num):
             self.tagged_dna_seqs.append('')
@@ -91,20 +78,22 @@ class dna_data_storage_process:
                         self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
 
 
-    def decode(self): # Edited seqs, original seq -> bit list
+    def decode(self): # Edited seqs, original seq, prtspcr_indices (Can be replaced) -> bit list
 
-        tc_ratio = [] # list that contains, for each grna sequence, the UNEDITED Thymine to ALL T and C ratio
-        for index in self.grna_indices:
-            t_amount = self.dna_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('T')
-            c_amount = self.dna_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('C')
+        tc_ratio = [] # list that contains, for each prtspcr sequence, the UNEDITED Thymine to ALL T and C ratio
+        for index in self.prtspcr_indices:
+            end_index = index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq) -1
+            t_amount = self.dna_seq[index:end_index].count('T')
+            c_amount = self.dna_seq[index:end_index].count('C')
             tc_ratio.append(t_amount/(c_amount + t_amount)) # uses t/t+c to avoid division by 0
         
-        edited_tc_ratios = [] # list that contains, for each grna sequence in each dna molecule, the EDITED Thymine to ALL T and C ratio
+        edited_tc_ratios = [] # list that contains, for each prtspcr sequence in each dna molecule, the EDITED Thymine to ALL T and C ratio
         for tagged_seq in self.tagged_dna_seqs:
             edited_tc_ratios.append([])
-            for index in self.grna_indices:
-                edited_t_amount = tagged_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('T')
-                edited_c_amount = tagged_seq[index:index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq)- 1 - index].count('C')
+            for index in self.prtspcr_indices:
+                end_index = index + 20 if index + 20 <= len(tagged_seq)-1 else len(tagged_seq) -1
+                edited_t_amount = tagged_seq[index:end_index].count('T')
+                edited_c_amount = tagged_seq[index:end_index].count('C')
                 edited_tc_ratios[-1].append(edited_t_amount/(edited_c_amount + edited_t_amount)) # uses t/t+c to avoid division by 0
         return has_mutated(tc_ratio, edited_tc_ratios)
         
@@ -122,5 +111,5 @@ def main(dna_seq, pam, bit_list):
 
     return bit_result
 
-        
+# print(main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list))        
 # Code limitations: RegEx doesnt find overlapping PAMS (AGGG -> AGG (not GGG))
