@@ -1,4 +1,4 @@
-import re, random, config
+import re, random, config, math
 
 
 def pam_finder(dna_seq, pam): # Dna + pam -> pam end indices
@@ -24,6 +24,22 @@ def has_mutated(original_ratios, new_ratios): # List of each protospacer's t/t+c
 
     return mutated_bits
 
+def off_target_bind(dna_seq, prtspcr_indices): #dna + protospacer indices -> targets for offtarget binding
+    protospacers = [dna_seq[prtspcr_index:prtspcr_index+2] for prtspcr_index in prtspcr_indices] 
+    protospacer_duos = [] #List of sets containing duos of offtarget binding candidates
+    for index, protospacer in enumerate(protospacers):
+        compared_prtspcr_counter = 1
+        for compared_prtspcr in protospacers[index + 1:]:
+            prtspcr_diff = 0
+            for base in range(len(protospacer)):
+                prtspcr_diff += protospacer[base] == compared_prtspcr[base]
+            if prtspcr_diff / len(protospacer) >= config.parameters.off_target_thresh:
+                protospacer_duos.append((prtspcr_indices[index], prtspcr_indices[index+compared_prtspcr_counter]))
+            compared_prtspcr_counter += 1
+    return protospacer_duos
+
+                
+
 class dna_data_storage_process:
 
     def __init__(self, origin_dna, pam_end_indices, bit_list): #Defines all inputs for the class + Resets for multiple back to back runs
@@ -38,19 +54,30 @@ class dna_data_storage_process:
             print(f'Error: Bit list length ({len(self.bit_list)}) does not match the number of pam sequences present ({len(self.prtspcr_indices)})')
             exit() 
         
-        else:
-            protspcr_indices_for_edit = [prtspcr_index for list_index, prtspcr_index in enumerate(self.prtspcr_indices) if self.bit_list[list_index]] #For each protospacer, check wether it is a 1, ie does it need editing.
-            self.tagged_ideal_seq = ''
-
-            prtspcr_counter = 0
-            for index, base in enumerate(self.dna_seq):
-                if index in range(protspcr_indices_for_edit[prtspcr_counter], protspcr_indices_for_edit[prtspcr_counter] + 20) and base == 'C':
-                    self.tagged_ideal_seq += 'T'
-                else:
-                    self.tagged_ideal_seq += base
-                # If we passsed the prtspcr area and we arent on the last pam
-                if index > protspcr_indices_for_edit[prtspcr_counter] + 19 and not prtspcr_counter == len(protspcr_indices_for_edit) - 1: 
-                    prtspcr_counter += 1
+    
+        protspcr_indices_for_edit = [prtspcr_index for list_index, prtspcr_index in enumerate(self.prtspcr_indices) if self.bit_list[list_index]] #For each protospacer, check wether it is a 1, ie does it need editing.
+        self.tagged_ideal_seq = ''
+        
+        offtargets = off_target_bind(self.dna_seq, self.prtspcr_indices)
+        offtarget_bindings = []
+        for protospacer_index in protspcr_indices_for_edit:
+            for duo in offtargets:
+                if duo[0] == protospacer_index:
+                    offtarget_bindings.append(duo[1])
+                elif duo[1] == protospacer_index:
+                    offtarget_bindings.append(duo[0])
+        protspcr_indices_for_edit += offtarget_bindings
+        protspcr_indices_for_edit = sorted(protspcr_indices_for_edit)
+        prtspcr_counter = 0
+        for index, base in enumerate(self.dna_seq):
+            if index in range(protspcr_indices_for_edit[prtspcr_counter], protspcr_indices_for_edit[prtspcr_counter] + 20) and base == 'C':
+                self.tagged_ideal_seq += 'T'
+            else:
+                self.tagged_ideal_seq += base
+            # If we passsed the prtspcr area and we arent on the last pam
+            if index > protspcr_indices_for_edit[prtspcr_counter] + 19 and not prtspcr_counter == len(protspcr_indices_for_edit) - 1: 
+                prtspcr_counter += 1
+    
 
     def channel(self): #Ideal seq + original seq + parameters for read/write chances -> all edited seqs
         
@@ -59,6 +86,7 @@ class dna_data_storage_process:
         dna_copy_num = config.parameters.copy_nums
 
         self.tagged_dna_seqs = [] #array of dna seqs, each edited.
+
 
         for tagged_seq in range(dna_copy_num):
             self.tagged_dna_seqs.append('')
@@ -113,3 +141,9 @@ def main(dna_seq, pam, bit_list):
 
 # print(main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list))        
 # Code limitations: RegEx doesnt find overlapping PAMS (AGGG -> AGG (not GGG))
+config.parameters.off_target_thresh = 0
+config.required_inputs.pam = 'NT'
+print(off_target_bind('ATCGGTCA', [0,4]))
+dna_data_storage_process.__init__(dna_data_storage_process,'ATCGGTCA', [0,4], [0,1])
+dna_data_storage_process.encode(dna_data_storage_process)
+print(dna_data_storage_process.tagged_ideal_seq)   
