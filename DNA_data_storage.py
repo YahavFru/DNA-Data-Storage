@@ -38,8 +38,6 @@ def off_target_bind(dna_seq, prtspcr_indices): #dna + protospacer indices -> tar
             compared_prtspcr_counter += 1
     return protospacer_duos
 
-                
-
 class dna_data_storage_process:
 
     def __init__(self, origin_dna, pam_end_indices, bit_list): #Defines all inputs for the class + Resets for multiple back to back runs
@@ -141,9 +139,3 @@ def main(dna_seq, pam, bit_list):
 
 # print(main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list))        
 # Code limitations: RegEx doesnt find overlapping PAMS (AGGG -> AGG (not GGG))
-config.parameters.off_target_thresh = 0
-config.required_inputs.pam = 'NT'
-print(off_target_bind('ATCGGTCA', [0,4]))
-dna_data_storage_process.__init__(dna_data_storage_process,'ATCGGTCA', [0,4], [0,1])
-dna_data_storage_process.encode(dna_data_storage_process)
-print(dna_data_storage_process.tagged_ideal_seq)   

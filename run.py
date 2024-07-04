@@ -6,7 +6,7 @@ import plotly.express as px
 import numpy as np
 import plotly.graph_objects as go
 
-def dna_generator(count):
+def clean_dna_generator(count):
     pam = config.required_inputs.pam
     dna_checkpoint = ''
     counter = 1
@@ -19,7 +19,7 @@ def dna_generator(count):
             else:
                 dna_seq += base
             
-        dna_seq += ''.join(random.choices('ACTG', k= random.randint(20, 20))) #20, 39
+        dna_seq += ''.join(random.choices('ACTG', k= random.randint(20, 39)))
         
         pam_indices = main.pam_finder(dna_seq, pam)
         if len(pam_indices) == count and len(dna_seq) >= pam_indices[-1] + 19:
@@ -28,6 +28,30 @@ def dna_generator(count):
             counter += 1
             dna_checkpoint = dna_seq
         
+##############################################################################################
+
+def dna_generator(count):
+    pam = config.required_inputs.pam
+    dna_checkpoint = ''
+    while True:
+        dna_seq = dna_checkpoint
+
+        for base in pam:
+            if base == 'N':
+                dna_seq += random.choice('ACTG')
+            else:
+                dna_seq += base
+            
+        dna_seq += ''.join(random.choices('ACTG', k= random.randint(20, 39)))
+        
+        pam_indices = main.pam_finder(dna_seq, pam)
+        if len(pam_indices) == count and len(dna_seq) >= pam_indices[-1] + 19:
+            return dna_seq
+        elif len(pam_indices) > count:
+            dna_checkpoint = ''
+        elif len(dna_seq) >= pam_indices[-1] + 19:
+            dna_checkpoint = dna_seq        
+
 def conf_exponent_graph():
     confidence_exponents = []
     avg_results = []
@@ -35,7 +59,7 @@ def conf_exponent_graph():
     accuracy_std = [] #Standard deviation
 
     for dna_seq_num in range(10):
-        config.required_inputs.dna_sequence = dna_generator(10)
+        config.required_inputs.dna_sequence = clean_dna_generator(10)
         single_seq_results.append([])
         confidence_exponents = [] #Same for each seq
         config.parameters.confidence_exponent = 1.1
@@ -102,7 +126,7 @@ def edit_probability_graph():
             for _ in range(num_repeats):
                 config.parameters.copy_nums = copy_nums
                 config.parameters.edit_probability = edit_rate
-                config.required_inputs.dna_sequence = dna_generator(5)
+                config.required_inputs.dna_sequence = clean_dna_generator(5)
                 result_bits = main.main(config.required_inputs.dna_sequence,
                                         config.required_inputs.pam,
                                         config.required_inputs.bit_list)
@@ -172,7 +196,7 @@ def copy_num_graph(num_seq_1, num_seq_2, num_seq_3):
 
     # Process sequences for num_seq_1
     for dna_seq_num in range(num_seq_1):
-        config.required_inputs.dna_sequence = dna_generator(5)
+        config.required_inputs.dna_sequence = clean_dna_generator(5)
         single_seq_results_1.append([])
         copy_nums = []  # Same for each seq
         config.parameters.copy_nums = 1
@@ -191,7 +215,7 @@ def copy_num_graph(num_seq_1, num_seq_2, num_seq_3):
 
     # Process sequences for num_seq_2
     for dna_seq_num in range(num_seq_2):
-        config.required_inputs.dna_sequence = dna_generator(5)
+        config.required_inputs.dna_sequence = clean_dna_generator(5)
         single_seq_results_2.append([])
         copy_nums = []  # Same for each seq
         config.parameters.copy_nums = 1
@@ -211,7 +235,7 @@ def copy_num_graph(num_seq_1, num_seq_2, num_seq_3):
     copy_nums = []
     # Process sequences for num_seq_3
     for dna_seq_num in range(num_seq_3):
-        config.required_inputs.dna_sequence = dna_generator(5)
+        config.required_inputs.dna_sequence = clean_dna_generator(5)
         single_seq_results_3.append([])
         copy_nums = []  # Same for each seq
         config.parameters.copy_nums = 1
@@ -327,7 +351,7 @@ def copy_num_graph():
         for _ in range(num_repeats):
             single_seq_results = [0]  # Start with accuracy 0 for 0 copy nums
             for copy_num in copy_nums[1:]:  # Skip the first element (0)
-                config.required_inputs.dna_sequence = dna_generator(5)
+                config.required_inputs.dna_sequence = clean_dna_generator(5)
                 config.parameters.copy_nums = copy_num
                 result_bits = main.main(config.required_inputs.dna_sequence,
                                         config.required_inputs.pam,
@@ -400,5 +424,3 @@ def copy_num_graph():
     fig.show()
 
 # copy_num_graph()
-
-print(dna_generator(5))
