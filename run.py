@@ -52,6 +52,8 @@ def dna_generator(count):
         elif len(dna_seq) >= pam_indices[-1] + 19:
             dna_checkpoint = dna_seq        
 
+########################################################################################
+
 def conf_exponent_graph():
     confidence_exponents = []
     avg_results = []
@@ -59,7 +61,7 @@ def conf_exponent_graph():
     accuracy_std = [] #Standard deviation
 
     for dna_seq_num in range(10):
-        config.required_inputs.dna_sequence = clean_dna_generator(10)
+        config.required_inputs.dna_sequence = dna_generator(5)
         single_seq_results.append([])
         confidence_exponents = [] #Same for each seq
         config.parameters.confidence_exponent = 1.1
@@ -103,7 +105,7 @@ def conf_exponent_graph():
 
     # Show the plot
     fig.show()
- 
+
 
 #########################################################################################
 
@@ -126,7 +128,7 @@ def edit_probability_graph():
             for _ in range(num_repeats):
                 config.parameters.copy_nums = copy_nums
                 config.parameters.edit_probability = edit_rate
-                config.required_inputs.dna_sequence = clean_dna_generator(5)
+                config.required_inputs.dna_sequence = dna_generator(5)
                 result_bits = main.main(config.required_inputs.dna_sequence,
                                         config.required_inputs.pam,
                                         config.required_inputs.bit_list)

@@ -1,4 +1,5 @@
-import re, random, config, math
+import re, random, config, numpy as np
+from scipy.spatial.distance import pdist, squareform
 
 
 def pam_finder(dna_seq, pam): # Dna + pam -> pam end indices
@@ -38,6 +39,13 @@ def off_target_bind(dna_seq, prtspcr_indices): #dna + protospacer indices -> tar
             compared_prtspcr_counter += 1
     return protospacer_duos
 
+def hamming_distance_matrix(dna_seq, prtspcr_index):
+    protospacers = [dna_seq[index:index+20] for index in prtspcr_index]
+    arr = np.array([list(s) for s in protospacers])
+    distances = pdist(arr, metric='hamming')
+    distance_matrix = squareform(distances)
+    return distance_matrix
+
 class dna_data_storage_process:
 
     def __init__(self, origin_dna, pam_end_indices, bit_list): #Defines all inputs for the class + Resets for multiple back to back runs
@@ -56,16 +64,6 @@ class dna_data_storage_process:
         protspcr_indices_for_edit = [prtspcr_index for list_index, prtspcr_index in enumerate(self.prtspcr_indices) if self.bit_list[list_index]] #For each protospacer, check wether it is a 1, ie does it need editing.
         self.tagged_ideal_seq = ''
         
-        offtargets = off_target_bind(self.dna_seq, self.prtspcr_indices)
-        offtarget_bindings = []
-        for protospacer_index in protspcr_indices_for_edit:
-            for duo in offtargets:
-                if duo[0] == protospacer_index:
-                    offtarget_bindings.append(duo[1])
-                elif duo[1] == protospacer_index:
-                    offtarget_bindings.append(duo[0])
-        protspcr_indices_for_edit += offtarget_bindings
-        protspcr_indices_for_edit = sorted(protspcr_indices_for_edit)
         prtspcr_counter = 0
         for index, base in enumerate(self.dna_seq):
             if index in range(protspcr_indices_for_edit[prtspcr_counter], protspcr_indices_for_edit[prtspcr_counter] + 20) and base == 'C':
@@ -82,30 +80,38 @@ class dna_data_storage_process:
         edit_probability = config.parameters.edit_probability
         read_accuracy = config.parameters.read_accuracy 
         dna_copy_num = config.parameters.copy_nums
+        self.tagged_dna_seqs = []
 
-        self.tagged_dna_seqs = [] #array of dna seqs, each edited.
+        dist_matrix = hamming_distance_matrix(self.dna_seq, self.prtspcr_indices)
+        for tagged_seq_num in range(dna_copy_num):
+            edit_indices = []
+            for row_index, row in enumerate(dist_matrix):
+                for clmn_index, value in enumerate(row)[row_index:]:
+                    if randomizer(value * config.parameters.offtarget_exponent): # Could happen with either dcas9 on either protospacer, so randomizes twice
+                        edit_indices.append(self.prtspcr_indices[clmn_index])
+                    if randomizer(value * config.parameters.offtarget_exponent):
+                        edit_indices.append(self.prtspcr_indices[row_index])
 
 
-        for tagged_seq in range(dna_copy_num):
-            self.tagged_dna_seqs.append('')
-            for base, edited_base in zip(self.dna_seq, self.tagged_ideal_seq):
-                if base == edited_base: # Same base -> no edit needs to happen, just randomizing sequencing errors
-                    if randomizer(read_accuracy):
-                        self.tagged_dna_seqs[tagged_seq] += edited_base
-                    else:
-                        self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
-                else: # Different bases -> edit needs to happen, randomizes sequencing and edit errors
-                    if randomizer(read_accuracy):
-                        if randomizer(edit_probability):
+            for index in sorted(edit_indices):
+                for base in self.dna_seq[index:index+20]:
+                    if base == 'C': # Different bases -> edit needs to happen, randomizes sequencing and edit errors
+                        if randomizer(read_accuracy):
+                            if randomizer(edit_probability):
+                                self.tagged_dna_seqs[tagged_seq] += edited_base
+                            else:
+                                self.tagged_dna_seqs[tagged_seq] += base
+                        else:
+                            self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
+                    else: # Same base -> no edit needs to happen, just randomizing sequencing errors
+                        if randomizer(read_accuracy):
                             self.tagged_dna_seqs[tagged_seq] += edited_base
                         else:
-                            self.tagged_dna_seqs[tagged_seq] += base
-                    else:
-                        self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
+                            self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
 
 
     def decode(self): # Edited seqs, original seq, prtspcr_indices (Can be replaced) -> bit list
-
+                 
         tc_ratio = [] # list that contains, for each prtspcr sequence, the UNEDITED Thymine to ALL T and C ratio
         for index in self.prtspcr_indices:
             end_index = index + 20 if index + 20 <= len(self.dna_seq)-1 else len(self.dna_seq) -1
@@ -137,5 +143,5 @@ def main(dna_seq, pam, bit_list):
 
     return bit_result
 
-# print(main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list))        
+print(main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list))        
 # Code limitations: RegEx doesnt find overlapping PAMS (AGGG -> AGG (not GGG))
