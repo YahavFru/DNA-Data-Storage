@@ -426,3 +426,7 @@ def copy_num_graph():
     fig.show()
 
 # copy_num_graph()
+
+##################################################
+
+print(main.main(clean_dna_generator(5), config.required_inputs.pam, config.required_inputs.bit_list))

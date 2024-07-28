@@ -25,26 +25,30 @@ def has_mutated(original_ratios, new_ratios): # List of each protospacer's t/t+c
 
     return mutated_bits
 
-def off_target_bind(dna_seq, prtspcr_indices): #dna + protospacer indices -> targets for offtarget binding
-    protospacers = [dna_seq[prtspcr_index:prtspcr_index+2] for prtspcr_index in prtspcr_indices] 
-    protospacer_duos = [] #List of sets containing duos of offtarget binding candidates
-    for index, protospacer in enumerate(protospacers):
-        compared_prtspcr_counter = 1
-        for compared_prtspcr in protospacers[index + 1:]:
-            prtspcr_diff = 0
-            for base in range(len(protospacer)):
-                prtspcr_diff += protospacer[base] == compared_prtspcr[base]
-            if prtspcr_diff / len(protospacer) >= config.parameters.off_target_thresh:
-                protospacer_duos.append((prtspcr_indices[index], prtspcr_indices[index+compared_prtspcr_counter]))
-            compared_prtspcr_counter += 1
-    return protospacer_duos
-
 def hamming_distance_matrix(dna_seq, prtspcr_index):
-    protospacers = [dna_seq[index:index+20] for index in prtspcr_index]
+    base_dict ={
+        'A': 0,
+        'C': 1,
+        'G': 2,
+        'T': 3
+    }
+    protospacers = [[base_dict[base] for base in dna_seq[index:index+20]] for index in prtspcr_index]
     arr = np.array([list(s) for s in protospacers])
     distances = pdist(arr, metric='hamming')
     distance_matrix = squareform(distances)
     return distance_matrix
+
+def protospacer_editor(prtspcr_start_index, all_sequences, sequence_edit_index): #protospacer start index + all sequences + sequences to edit -> ALL edited protospacers.
+    sequence_edit_index.sort()
+    index_counter = 0
+    for seq_index, sequence in enumerate(all_sequences):
+        if index_counter >= len(sequence_edit_index):
+            break
+        if seq_index == sequence_edit_index[index_counter]:
+            index_counter += 1
+            all_sequences[seq_index] = all_sequences[seq_index][:prtspcr_start_index] + ''.join(["T" if base == "C" and randomizer (config.parameters.edit_probability) else base for base in all_sequences[seq_index][prtspcr_start_index:prtspcr_start_index+20]]) + all_sequences[seq_index][prtspcr_start_index+20:]
+    return all_sequences
+
 
 class dna_data_storage_process:
 
@@ -73,6 +77,7 @@ class dna_data_storage_process:
             # If we passsed the prtspcr area and we arent on the last pam
             if index > protspcr_indices_for_edit[prtspcr_counter] + 19 and not prtspcr_counter == len(protspcr_indices_for_edit) - 1: 
                 prtspcr_counter += 1
+
     
 
     def channel(self): #Ideal seq + original seq + parameters for read/write chances -> all edited seqs
@@ -80,35 +85,18 @@ class dna_data_storage_process:
         edit_probability = config.parameters.edit_probability
         read_accuracy = config.parameters.read_accuracy 
         dna_copy_num = config.parameters.copy_nums
-        self.tagged_dna_seqs = []
+        self.tagged_dna_seqs = dna_copy_num * [self.dna_seq] #Creates n copies of DNA
 
-        dist_matrix = hamming_distance_matrix(self.dna_seq, self.prtspcr_indices)
-        for tagged_seq_num in range(dna_copy_num):
-            edit_indices = []
-            for row_index, row in enumerate(dist_matrix):
-                for clmn_index, value in enumerate(row)[row_index:]:
-                    if randomizer(value * config.parameters.offtarget_exponent): # Could happen with either dcas9 on either protospacer, so randomizes twice
-                        edit_indices.append(self.prtspcr_indices[clmn_index])
-                    if randomizer(value * config.parameters.offtarget_exponent):
-                        edit_indices.append(self.prtspcr_indices[row_index])
+        dist_matrix = hamming_distance_matrix(self.dna_seq, self.prtspcr_indices) #n x n matrix of similarity between protospacers
+        print(dist_matrix)
+        for prtspcr_num in range(len(self.prtspcr_indices)): #For each COLUMN in dist matrix
+            for second_prtspcr_num in range(len(self.prtspcr_indices)): #For each ROW in dist matrix
+                if self.bit_list[prtspcr_num]:
+                    copy_edit_amount = np.random.binomial(dna_copy_num, (1-dist_matrix[prtspcr_num][second_prtspcr_num]) * config.parameters.offtarget_exponent) # How many protospacers to edit
+                    seq_edit_indices = random.sample(range(dna_copy_num), copy_edit_amount) #Which ones are edited (Randomly selected)
+                    protospacer_editor(self.prtspcr_indices[second_prtspcr_num], self.tagged_dna_seqs, seq_edit_indices)
 
-
-            for index in sorted(edit_indices):
-                for base in self.dna_seq[index:index+20]:
-                    if base == 'C': # Different bases -> edit needs to happen, randomizes sequencing and edit errors
-                        if randomizer(read_accuracy):
-                            if randomizer(edit_probability):
-                                self.tagged_dna_seqs[tagged_seq] += edited_base
-                            else:
-                                self.tagged_dna_seqs[tagged_seq] += base
-                        else:
-                            self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
-                    else: # Same base -> no edit needs to happen, just randomizing sequencing errors
-                        if randomizer(read_accuracy):
-                            self.tagged_dna_seqs[tagged_seq] += edited_base
-                        else:
-                            self.tagged_dna_seqs[tagged_seq] += random.choice('ACTG')
-
+        
 
     def decode(self): # Edited seqs, original seq, prtspcr_indices (Can be replaced) -> bit list
                  
@@ -142,6 +130,3 @@ def main(dna_seq, pam, bit_list):
         print(f'Tagged {len(dna_data_storage_process.tagged_dna_seqs)} DNA sequences')
 
     return bit_result
-
-print(main(config.required_inputs.dna_sequence, config.required_inputs.pam, config.required_inputs.bit_list))        
-# Code limitations: RegEx doesnt find overlapping PAMS (AGGG -> AGG (not GGG))
